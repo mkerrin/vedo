@@ -1936,6 +1936,27 @@ class Arrow(Mesh):
 
         ![](https://raw.githubusercontent.com/lorensen/VTKExamples/master/src/Testing/Baseline/Cxx/GeometricObjects/TestOrientedArrow.png)
         """
+        self.s = s if s is not None else 1  ## only needed by pyplot.__iadd()
+        self.shaft_radius = shaft_radius
+        self.head_radius = head_radius
+        self.head_length = head_length
+        self.res = res
+
+        tf = self.get_tf(start_pt, end_pt, s, res)
+
+        Mesh.__init__(self, tf.GetOutput(), c, alpha)
+
+        self.phong().lighting("plastic")
+        self.SetPosition(start_pt)
+        self.PickableOff()
+        self.DragableOff()
+        self.base = np.array(start_pt, dtype=float)
+        self.top = np.array(end_pt, dtype=float)
+        self.tip_index = None
+        self.fill = True  # used by pyplot.__iadd__()
+        self.name = "Arrow"
+
+    def get_tf(self, start_pt, end_pt, s, res):
         # in case user is passing meshs
         if isinstance(start_pt, vtk.vtkActor):
             start_pt = start_pt.GetPosition()
@@ -1971,11 +1992,11 @@ class Arrow(Mesh):
         #     self.source.SetTipRadius(sz*1.75)
         #     self.source.SetTipLength(sz*15)
 
-        if head_length:
+        if self.head_length:
             self.source.SetTipLength(head_length)
-        if head_radius:
+        if self.head_radius:
             self.source.SetTipRadius(head_radius)
-        if shaft_radius:
+        if self.shaft_radius:
             self.source.SetShaftRadius(shaft_radius)
 
         self.source.Update()
@@ -1994,18 +2015,11 @@ class Arrow(Mesh):
         tf.SetTransform(t)
         tf.Update()
 
-        Mesh.__init__(self, tf.GetOutput(), c, alpha)
+        return tf
 
-        self.phong().lighting("plastic")
-        self.SetPosition(start_pt)
-        self.PickableOff()
-        self.DragableOff()
-        self.base = np.array(start_pt, dtype=float)
-        self.top = np.array(end_pt, dtype=float)
-        self.tip_index = None
-        self.fill = True  # used by pyplot.__iadd__()
-        self.s = s if s is not None else 1  ## used by pyplot.__iadd()
-        self.name = "Arrow"
+    def update(self, start_pt, end_pt):
+        tf = self.get_tf(start_pt, end_pt, self.s, self.res)
+        self._update(tf.GetOutput())
 
     def tip_point(self, return_index=False):
         """Return the coordinates of the tip of the Arrow, or the point index."""

@@ -1947,16 +1947,13 @@ class Arrow(Mesh):
         Mesh.__init__(self, tf.GetOutput(), c, alpha)
 
         self.phong().lighting("plastic")
-        self.SetPosition(start_pt)
         self.PickableOff()
         self.DragableOff()
-        self.base = np.array(start_pt, dtype=float)
-        self.top = np.array(end_pt, dtype=float)
         self.tip_index = None
         self.fill = True  # used by pyplot.__iadd__()
         self.name = "Arrow"
 
-    def get_tf(self, start_pt, end_pt, s, res):
+    def get_tf(self, start_pt=(0, 0, 0), end_pt=(1, 0, 0), s=None, res=12):
         # in case user is passing meshs
         if isinstance(start_pt, vtk.vtkActor):
             start_pt = start_pt.GetPosition()
@@ -2015,10 +2012,14 @@ class Arrow(Mesh):
         tf.SetTransform(t)
         tf.Update()
 
+        self.SetPosition(start_pt)
+        self.base = np.array(start_pt, dtype=float)
+        self.top = np.array(end_pt, dtype=float)
+
         return tf
 
-    def update(self, start_pt, end_pt):
-        tf = self.get_tf(start_pt, end_pt, self.s, self.res)
+    def update(self, start_pt=(0, 0, 0), end_pt=(1, 0, 0), s=None, res=12):
+        tf = self.get_tf(start_pt, end_pt, s, res)
         self._update(tf.GetOutput())
 
     def tip_point(self, return_index=False):
@@ -3440,7 +3441,20 @@ class Cylinder(Mesh):
 
         ![](https://raw.githubusercontent.com/lorensen/VTKExamples/master/src/Testing/Baseline/Cxx/GeometricObjects/TestCylinder.png)
         """
-        if utils.is_sequence(pos[0]):  # assume user is passing pos=[base, top]
+        self.res = res
+        self.r = r
+        self.cap = cap
+        self.height = height
+
+        tf = self.get_tf(pos=pos, axis=axis)
+        pd = tf.GetOutput()
+
+        Mesh.__init__(self, pd, c, alpha)
+        self.phong()
+        self.name = "Cylinder"
+
+    def get_tf(self, pos=(0, 0, 0), axis=(0, 0, 1)):
+        if utils.is_sequence(pos[0]):  # assume userp is passing pos=[base, top]
             base = np.array(pos[0], dtype=float)
             top = np.array(pos[1], dtype=float)
             pos = (base + top) / 2
@@ -3449,14 +3463,15 @@ class Cylinder(Mesh):
             axis = utils.versor(axis)
         else:
             axis = utils.versor(axis)
+            height = self.height
             base = pos - axis * height / 2
             top = pos + axis * height / 2
 
         cyl = vtk.vtkCylinderSource()
-        cyl.SetResolution(res)
-        cyl.SetRadius(r)
+        cyl.SetResolution(self.res)
+        cyl.SetRadius(self.r)
         cyl.SetHeight(height)
-        cyl.SetCapping(cap)
+        cyl.SetCapping(self.cap)
         cyl.Update()
 
         theta = np.arccos(axis[2])
@@ -3470,14 +3485,16 @@ class Cylinder(Mesh):
         tf.SetInputData(cyl.GetOutput())
         tf.SetTransform(t)
         tf.Update()
-        pd = tf.GetOutput()
 
-        Mesh.__init__(self, pd, c, alpha)
-        self.phong()
         self.SetPosition(pos)
         self.base = base + pos
         self.top = top + pos
-        self.name = "Cylinder"
+
+        return tf
+
+    def update(self, pos=(0, 0, 0), axis=(0, 0, 1)):
+        tf = self.get_tf(pos=pos, axis=axis)
+        self._update(tf.GetOutput())
 
 
 class Cone(Mesh):
